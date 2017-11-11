@@ -13,10 +13,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.smarthome.binding.tradfri.internal.CoapCallback;
 import org.eclipse.smarthome.binding.tradfri.internal.TradfriCoapClient;
 import org.eclipse.smarthome.binding.tradfri.internal.config.TradfriDeviceConfig;
 import org.eclipse.smarthome.binding.tradfri.internal.model.TradfriDeviceData;
+import org.eclipse.smarthome.core.thing.Bridge;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
@@ -43,14 +45,16 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
 
     protected TradfriCoapClient coapClient;
 
-    public TradfriThingHandler(Thing thing) {
+    public TradfriThingHandler(@NonNull Thing thing) {
         super(thing);
     }
 
     @Override
     public synchronized void initialize() {
+        Bridge tradfriGateway = getBridge();
         this.id = getConfigAs(TradfriDeviceConfig.class).id;
-        TradfriGatewayHandler handler = (TradfriGatewayHandler) getBridge().getHandler();
+        TradfriGatewayHandler handler = (TradfriGatewayHandler) tradfriGateway.getHandler();
+
         String uriString = handler.getGatewayURI() + "/" + id;
         try {
             URI uri = new URI(uriString);
@@ -61,12 +65,20 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getMessage());
             return;
         }
-        updateStatus(ThingStatus.UNKNOWN);
         active = true;
-
-        scheduler.schedule(() -> {
-            coapClient.startObserve(this);
-        }, 3, TimeUnit.SECONDS);
+        updateStatus(ThingStatus.UNKNOWN);
+        switch (tradfriGateway.getStatus()) {
+            case ONLINE:
+                scheduler.schedule(() -> {
+                    coapClient.startObserve(this);
+                }, 3, TimeUnit.SECONDS);
+                break;
+            case OFFLINE:
+            default:
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                        String.format("Gateway offline '%s'", tradfriGateway.getStatusInfo()));
+                break;
+        }
     }
 
     @Override
@@ -92,7 +104,10 @@ public abstract class TradfriThingHandler extends BaseThingHandler implements Co
         super.bridgeStatusChanged(bridgeStatusInfo);
 
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
-            scheduler.submit(() -> coapClient.startObserve(this));
+            // the status might have changed because the bridge is completely reconfigured - so we need to re-establish
+            // our CoAP connection as well
+            dispose();
+            initialize();
         }
     }
 
