@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014,2017 Contributors to the Eclipse Foundation
+ * Copyright (c) 2014,2018 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -34,12 +34,6 @@ public class BridgeImpl extends ThingImpl implements Bridge {
 
     private transient List<Thing> things = new CopyOnWriteArrayList<>();
     private transient Logger logger = LoggerFactory.getLogger(BridgeImpl.class);
-
-    /**
-     * Package protected default constructor to allow reflective instantiation.
-     */
-    BridgeImpl() {
-    }
 
     public BridgeImpl(ThingTypeUID thingTypeUID, String bridgeId) {
         super(thingTypeUID, bridgeId);
