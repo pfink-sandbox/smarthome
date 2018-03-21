@@ -59,7 +59,10 @@ public class QuantityType<T extends Quantity<T>> extends Number
     public static final QuantityType<Dimensionless> ONE = new QuantityType<>(1, AbstractUnit.ONE);
 
     // Regular expression to split unit from value
-    private static final String UNIT_PATTERN = "(?<=\\d)\\s*(?=[a-zA-Z°µ%'])";
+    // split on any blank character, even none (\\s*) which occurs after a digit (?<=\\d) and before
+    // a "unit" character ?=[a-zA-Z°µ%'] which itself must not be preceded by plus/minus digit (?![\\+\\-]?\\d).
+    // The later would be an exponent from the scalar value.
+    private static final String UNIT_PATTERN = "(?<=\\d)\\s*(?=[a-zA-Z°µ%'](?![\\+\\-]?\\d))";
 
     private final Quantity<T> quantity;
 
